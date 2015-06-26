@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,67 +51,13 @@ public class MSDUtils {
 		}
 	}
 	
-	public static void testLambdaVsNormalIO(File f) {
-		final List<String> users = new ArrayList<String>();
+	private static Set<String> uniqueUsers(File f) {
+		final Set<String> users = new HashSet<String>();
 		
 		LineConsumer lineConsumer = new LineConsumer() {
 			
 			public void accept(String[] t) {
-				if( !users.contains(t[0]) )
-					users.add(t[0]);
-			}
-		};
-		
-		long start = System.currentTimeMillis();
-		fileRead(f, lineConsumer);
-		System.out.println(
-				"Reading file with lambdas took "
-				+ (System.currentTimeMillis()-start) + "ms. for"
-				+ users.size() + " users");
-		
-		
-		BufferedReader br = null;
-		users.clear();
-		start = System.currentTimeMillis();
-		try {
-			
-			br = Files.newBufferedReader( Paths.get(f.getAbsolutePath()) );
-			String line = null;
-			
-			while ( (line=br.readLine()) != null ){
-				String[] columns = line.split("\t");
-				if( !users.contains(columns[0]) )
-					users.add(columns[0]);
-			}
-			
-		} catch (IOException e) {
-			e.printStackTrace();
-			throw new RuntimeException(e);
-		}
-		finally {
-			try {
-				br.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-				throw new RuntimeException(e);
-			}
-		}
-		
-		System.out.println(
-				"Normal reading took "
-				+ (System.currentTimeMillis()-start) + "ms. for"
-				+ users.size()+ " users" );
-		
-	}
-	
-	private static List<String> uniqueUsers(File f) {
-		final List<String> users = new ArrayList<String>();
-		
-		LineConsumer lineConsumer = new LineConsumer() {
-			
-			public void accept(String[] t) {
-				if( !users.contains(t[0]) )
-					users.add(t[0]);
+				users.add(t[0]);
 			}
 		};
 		
@@ -122,11 +69,12 @@ public class MSDUtils {
 		return users;
 	}
 	
-	private static Map<String, Integer> usersToIndices(List<String> users) {
+	private static Map<String, Integer> usersToIndices(Collection<String> users) {
 		Map<String, Integer> usersToIndices = new HashMap<String, Integer>();
 		
-		for (int i = 0; i < users.size(); i++)
-			usersToIndices.put( users.get(i), new Integer(i) );
+		int index = 1;
+		for (String user : users)
+			usersToIndices.put( user, new Integer(index++) );
 		
 		return usersToIndices;
 	}

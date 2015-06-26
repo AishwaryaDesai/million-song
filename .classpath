@@ -11,6 +11,5 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/Volumes/storage/personal projects/MSc @fmi test projects/Recommender Systems/mahout-distribution-0.10.0/mahout-mr-0.10.0.jar" sourcepath="/Volumes/storage/personal projects/MSc @fmi test projects/Recommender Systems/mahout src"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

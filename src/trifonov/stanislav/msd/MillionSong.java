@@ -21,13 +21,11 @@ public class MillionSong {
 		File songsFile = new File(DIRNAME_DATA, FILENAME_SONGS);
 		File evaluationFile = new File(DIRNAME_DATA, FILENAME_VISIBLE_HISTORY);
 		
-		MSDUtils.testLambdaVsNormalIO(evaluationFile);
-		
 		System.out.println("loading training data ");
-		Map<String, List<Integer>> songUsersTraining = MSDUtils.songUsers(evaluationFile);//TODO use the training file
+		Map<String, List<Integer>> songUsersTraining = MSDUtils.songUsers(trainingFile);//TODO use the training file
 		
 		
-		
+		System.out.print("done");
 	}
 
 }
