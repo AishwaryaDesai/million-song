@@ -1,17 +1,16 @@
 package trifonov.stanislav.msd;
 
-import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.ByteOrder;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 
 
@@ -24,18 +23,62 @@ public class MSDUtils {
 	
 	static boolean shouldLog = true;
 	
+	static final long ONE_GB = 1024 * 1024 * 1024;
+	
 	private interface LineConsumer extends Consumer<String[]>{};
 
 	private static void fileRead(File f, Consumer<String[]> consumer) {
-		BufferedReader br = null;
+		FileInputStream is = null;
 		
 		try {
 			
-			br = Files.newBufferedReader( Paths.get(f.getAbsolutePath()) );
-			String line = null;
+			is = new FileInputStream(f);
+			FileChannel channel = is.getChannel();
+			MappedByteBuffer buffer = channel.map(MapMode.READ_ONLY, 0, Math.min(channel.size(), Integer.MAX_VALUE));
+			buffer.order(ByteOrder.LITTLE_ENDIAN);
+			int bufferCount = 1;
 			
-			while ( (line=br.readLine()) != null )
-				consumer.accept( line.split("\t") );
+			StringBuilder lineBuilder = new StringBuilder();
+			String line = null;
+			String[] columns = null;
+//			int linesCount = 0;
+			char c;
+			
+			
+			while(buffer.hasRemaining()) {
+				lineBuilder.setLength(0);
+				c = (char) buffer.get();
+				while (c != '\n') {
+					lineBuilder.append(c);
+					c = (char) buffer.get();
+				}
+				
+				line = lineBuilder.toString();
+				
+//				if(shouldLog) {
+//					++linesCount;
+//					if(linesCount % 5000000l == 0)
+//						System.out.println(linesCount + " lines read");
+//				}
+				
+				columns = line.split("\t");
+				consumer.accept( columns );
+				
+				if(buffer.position() > ONE_GB) {
+					int newPosition = (int)(buffer.position() - ONE_GB);
+					long size = Math.min(channel.size() - ONE_GB*bufferCount, Integer.MAX_VALUE);
+//					System.out.println(
+//							String.format(
+//									"Mapping %.2f GB at position %d",
+//									size / (double)ONE_GB,
+//									ONE_GB*bufferCount));
+					
+					buffer = channel.map(MapMode.READ_ONLY, ONE_GB*bufferCount, size);
+					buffer.order(ByteOrder.LITTLE_ENDIAN);
+					buffer.position(newPosition);
+					bufferCount += 1;
+				}
+			}
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -43,7 +86,7 @@ public class MSDUtils {
 		}
 		finally {
 			try {
-				br.close();
+				is.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 				throw new RuntimeException(e);
@@ -51,69 +94,78 @@ public class MSDUtils {
 		}
 	}
 	
-	private static Set<String> uniqueUsers(File f) {
-		final Set<String> users = new HashSet<String>();
+	
+	public static Map<String, Integer> songIndices(File f) {
+		final Map<String, Integer> songIndices = new HashMap<String, Integer>();
 		
-		LineConsumer lineConsumer = new LineConsumer() {
-			
-			public void accept(String[] t) {
-				users.add(t[0]);
+		fileRead(f, new LineConsumer() {
+			public void accept(String[] columns) {
+				String[] tokens = columns[0].split(" ");
+				songIndices.put( tokens[0], Integer.valueOf(tokens[1]) );
 			}
-		};
-		
-		fileRead(f, lineConsumer);
+		});
 		
 		if(shouldLog)
-			System.out.println( users.size() + " unique users found");
+			System.out.println(songIndices.size() + " uniques songs found");
 		
-		return users;
+		return songIndices;
 	}
 	
-	private static Map<String, Integer> usersToIndices(Collection<String> users) {
-		Map<String, Integer> usersToIndices = new HashMap<String, Integer>();
+	private static Map<String, Integer> uniqueUsers(File f) {
+		final Map<String, Integer> usersToIndices = new HashMap<String, Integer>();
 		
-		int index = 1;
-		for (String user : users)
-			usersToIndices.put( user, new Integer(index++) );
+		fileRead(f, new LineConsumer() {
+			public void accept(String[] columns) {
+				usersToIndices.put( columns[0], usersToIndices.size()+1);
+			}
+		});
+		if(shouldLog)
+			System.out.println( usersToIndices.size() + " unique users found");
 		
 		return usersToIndices;
 	}
 	
-	static Map<String, List<Integer>> songUsers(File f) {
-		final Map<String, Set<String>> songUsers = new HashMap<String, Set<String>>();
+	static Map<Integer, List<Integer>> songUsers(File f, final Map<String, Integer> songIndices) {
+		final Map<String, Integer> userIndices = uniqueUsers(f);
+		
+		final Map<Integer, List<Integer>> songUsers = new HashMap<Integer, List<Integer>>();
 		
 		LineConsumer lineConsumer = new LineConsumer() {
-			public void accept(String[] t) {
+			public void accept(String[] columns) {
 				//t = [user, song, playCount];
-				if(songUsers.containsKey(t[1])) {
-					Set<String> users = songUsers.get(t[1]);
-					users.add(t[0]);
+				int userIndex = userIndices.get(columns[0]);
+				int songIndex = songIndices.get(columns[1]);
+				List<Integer> users = songUsers.get(songIndex);
+				if(users == null) {
+					users = new ArrayList<Integer>();
+					songUsers.put(songIndex, users);
 				}
-				else {
-					Set<String> users = new HashSet<String>();
-					users.add(t[0]);
-					songUsers.put(t[1], users);
-				}
+				users.add(userIndex);
 			}
 		};
 		
 		fileRead(f, lineConsumer);
 
-		
-		Map<String, Integer> userIndices = usersToIndices( uniqueUsers(f) );
-		Map<String, List<Integer>> result = new HashMap<String, List<Integer>>();
-		
-		for(Map.Entry<String, Set<String>> entry : songUsers.entrySet()) {
-			List<Integer> indices = new ArrayList<Integer>(entry.getValue().size());
-			for(String user : entry.getValue())
-				indices.add( userIndices.get(user) );
+		if(shouldLog) {
+			int minUsers = Integer.MAX_VALUE;
+			int maxUsers = Integer.MIN_VALUE;
+			long totalUsers = 0;
+			for(Map.Entry<Integer, List<Integer>> entry : songUsers.entrySet()) {
+				int listenersCount = entry.getValue().size();
+				if(  listenersCount < minUsers)
+					minUsers = listenersCount;
+				if( listenersCount > maxUsers)
+					maxUsers = listenersCount;
+				totalUsers += listenersCount;
+			}
 			
-			result.put( entry.getKey(), indices );
+			System.out.println(
+					String.format(
+							"%d songs found. minUsers: %d maxUsers: %d avgUsers: %.3f",
+							songUsers.size(),
+							minUsers, maxUsers, (totalUsers/(double)songUsers.size()) ));
 		}
 		
-		if(shouldLog)
-			System.out.println(result.size() + " songs found");
-		
-		return result;
+		return songUsers;
 	}
 }

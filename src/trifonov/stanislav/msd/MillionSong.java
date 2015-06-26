@@ -7,7 +7,7 @@ import java.util.Map;
 public class MillionSong {
 
 	final static String DIRNAME_DATA = "../data";
-	final static String DIRNAME_FULL_HISTORY = "/Volumes/storage";
+	final static String DIRNAME_FULL_HISTORY = "../full_history";
 	
 	final static String FILENAME_USERS = "kaggle_users.txt";
 	final static String FILENAME_SONGS = "kaggle_songs.txt";
@@ -22,7 +22,8 @@ public class MillionSong {
 		File evaluationFile = new File(DIRNAME_DATA, FILENAME_VISIBLE_HISTORY);
 		
 		System.out.println("loading training data ");
-		Map<String, List<Integer>> songUsersTraining = MSDUtils.songUsers(trainingFile);//TODO use the training file
+		Map<String, Integer> songIndices = MSDUtils.songIndices(songsFile);
+		Map<Integer, List<Integer>> songUsersTraining = MSDUtils.songUsers(trainingFile, songIndices);//TODO use the training file
 		
 		
 		System.out.print("done");
