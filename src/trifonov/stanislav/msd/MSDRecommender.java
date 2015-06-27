@@ -24,17 +24,21 @@ class MSDRecommender extends AbstractRecommender {
 	
 	@Override
 	public List<RecommendedItem> recommend(long userID, int howMany, IDRescorer rescorer, boolean includeKnownItems) throws TasteException {
-		// TODO Auto-generated method stub
 		List<RecommendedItem> items = new ArrayList<>();
-		for(int i=0; i<howMany; ++i)
-			items.add( new GenericRecommendedItem( _popularSongs.get(i), 1) );
+		for(int i=0; i<howMany; ++i) {
+			int itemId = _popularSongs.get(i);
+			items.add( new GenericRecommendedItem( itemId, estimatePreference(userID, itemId)) );
+		}
 		
 		return items;
 	}
 
 	@Override
 	public float estimatePreference(long userID, long itemID) throws TasteException {
-		return 1;
+		if(_popularSongs.indexOf((int)itemID) < MillionSong.RECOMMENDATIONS_COUNT)
+			return 1;
+		
+		return 0;
 	}
 
 	@Override

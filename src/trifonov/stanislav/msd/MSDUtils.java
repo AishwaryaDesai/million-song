@@ -255,4 +255,27 @@ public class MSDUtils {
 		
 		sbc.close();
 	}
+	
+	public static Map<Integer, List<Integer>> userSongs(File f, final Map<String, Integer> userIndices, final Map<String, Integer> songIndices) {
+		final Map<Integer, List<Integer>> userSongs = new HashMap<>();
+		
+		fileRead(f, new LineConsumer() {
+			@Override
+			public void accept(String[] arg0) {
+				String userID = arg0[0];
+				String songID = arg0[1];
+				Integer user = userIndices.get(userID);
+				Integer song = songIndices.get(songID);
+				
+				List<Integer> songs = userSongs.get(user);
+				if(songs == null) {
+					songs = new ArrayList<>();
+					userSongs.put(user, songs);
+				}
+				songs.add(song);
+			}
+		});
+		
+		return userSongs;
+	}
 }
