@@ -11,5 +11,12 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="libs/mahout-mr-0.10.1.jar" sourcepath="/home/stan0/development/tools_libs_sdk/apache-mahout-distribution-0.10.1-src"/>
+	<classpathentry kind="lib" path="libs/slf4j-api-1.7.12.jar"/>
+	<classpathentry kind="lib" path="libs/slf4j-log4j12-1.7.12.jar"/>
+	<classpathentry kind="lib" path="libs/log4j-1.2.17.jar"/>
+	<classpathentry kind="lib" path="libs/guava-14.0.1.jar"/>
+	<classpathentry kind="lib" path="libs/mahout-math-0.10.1.jar"/>
+	<classpathentry kind="lib" path="libs/commons-math3-3.2.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

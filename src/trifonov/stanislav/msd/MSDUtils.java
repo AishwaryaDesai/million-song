@@ -3,14 +3,24 @@ package trifonov.stanislav.msd;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 
@@ -41,7 +51,7 @@ public class MSDUtils {
 			StringBuilder lineBuilder = new StringBuilder();
 			String line = null;
 			String[] columns = null;
-//			int linesCount = 0;
+			int linesCount = 0;
 			char c;
 			
 			
@@ -111,7 +121,7 @@ public class MSDUtils {
 		return songIndices;
 	}
 	
-	private static Map<String, Integer> uniqueUsers(File f) {
+	public static Map<String, Integer> uniqueUsers(File f) {
 		final Map<String, Integer> usersToIndices = new HashMap<String, Integer>();
 		
 		fileRead(f, new LineConsumer() {
@@ -167,5 +177,82 @@ public class MSDUtils {
 		}
 		
 		return songUsers;
+	}
+	
+	static Map<Integer, List<Integer>> songUsersFromCSV(File csvFile) {
+		final Map<Integer, List<Integer>> songUsers = new HashMap<Integer, List<Integer>>();
+		
+		fileRead(csvFile, new LineConsumer() {
+			public void accept(String[] columns) {
+				String[] values = columns[0].split(",");
+				Integer userIndex = Integer.valueOf(values[0]);
+				Integer songIndex = Integer.valueOf(values[1]);
+				List<Integer> users = songUsers.get(songIndex);
+				if(users == null) {
+					users = new ArrayList<Integer>();
+					songUsers.put(songIndex, users);
+				}
+				users.add(userIndex);
+			}
+		});
+		
+		return songUsers;
+	}
+	
+	static List<Integer> songByPopularityFromCSV(File csvFile) {
+		final Map<Integer, Integer> songPlayCounts = new HashMap<Integer, Integer>();
+		
+		fileRead(csvFile, new LineConsumer() {
+			public void accept(String[] arg0) {
+				String[] values = arg0[0].split(",");
+				Integer song = Integer.valueOf(values[1]);
+				Integer playCount = songPlayCounts.get(song);
+				if(playCount == null)
+					playCount = Integer.valueOf(0);
+				
+				songPlayCounts.put(song, playCount+1);
+			}
+		});
+		
+		List<Integer> songs = new ArrayList<Integer>( songPlayCounts.keySet() );
+		Collections.sort(songs, new Comparator<Integer>() {
+			public int compare(Integer arg0, Integer arg1) {
+				return songPlayCounts.get(arg0) - songPlayCounts.get(arg1);
+			};
+		});
+		
+		return songs;
+	}
+	
+
+	public static void exportToCSV(File in, File out, final Map<String, Integer> userIndices, final Map<String, Integer> songIndices) throws IOException {
+		Set<OpenOption> options = new HashSet<OpenOption>();
+	    options.add(StandardOpenOption.APPEND);
+	    options.add(StandardOpenOption.CREATE);
+		
+	    final SeekableByteChannel sbc = Files.newByteChannel(Paths.get(out.getAbsolutePath()), options);
+	        
+		fileRead(in, new LineConsumer() {
+			public void accept(String[] columns) {
+				Integer userIndex = userIndices.get(columns[0]);
+				Integer songIndex = songIndices.get(columns[1]);
+				
+				String line = 
+						userIndex
+						+ "," + songIndex
+						+ "," + 1
+						+ '\n';
+				byte data[] = line.getBytes();
+			    ByteBuffer bb = ByteBuffer.wrap(data);
+			    try {
+					sbc.write(bb);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		});
+		
+		sbc.close();
 	}
 }
