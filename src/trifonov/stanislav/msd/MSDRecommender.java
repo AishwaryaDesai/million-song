@@ -36,9 +36,9 @@ class MSDRecommender extends AbstractRecommender {
 	@Override
 	public float estimatePreference(long userID, long itemID) throws TasteException {
 		if(_popularSongs.indexOf((int)itemID) < MillionSong.RECOMMENDATIONS_COUNT)
-			return 1;
+			return 1f;
 		
-		return 0;
+		return 0f;
 	}
 
 	@Override

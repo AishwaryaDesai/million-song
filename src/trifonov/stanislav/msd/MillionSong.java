@@ -109,9 +109,10 @@ public class MillionSong {
 	public void train() {
 		System.out.println("training...");
 		long start = System.currentTimeMillis();
-		_popularSongs = MSDUtils.songByPopularityFromCSV(_trainingCSVFile);
+//		_popularSongs = MSDUtils.songByPopularityFromCSV(_trainingCSVFile);
 		_songUsersTraining = MSDUtils.songUsersFromCSV(_trainingCSVFile);
-		_userSongs = MSDUtils.userSongs( _evaluationValidationHidden, _evaluationUserIndices, _songIndices);
+		_popularSongs = MSDUtils.songByPopularityFromSongUsers(_songUsersTraining);
+		_userSongs = MSDUtils.userSongs( _evaluationValidationVisible, _evaluationUserIndices, _songIndices);
 		long end = System.currentTimeMillis();
 		System.out.println("Training took " + (end-start) + "ms.");
 	}
@@ -129,12 +130,12 @@ public class MillionSong {
 			}
 		});
 		
-//		recommenderBuilders.put("AvgRec", new RecommenderBuilder() {
-//			@Override
-//			public Recommender buildRecommender(DataModel dataModel) throws TasteException {
-//				return new ItemAverageRecommender(dm);
-//			}
-//		});
+		recommenderBuilders.put("AvgRec", new RecommenderBuilder() {
+			@Override
+			public Recommender buildRecommender(DataModel dataModel) throws TasteException {
+				return new ItemAverageRecommender(dm);
+			}
+		});
 		
 //		recommenderBuilders.put("SVDRec", new RecommenderBuilder() {
 //			@Override

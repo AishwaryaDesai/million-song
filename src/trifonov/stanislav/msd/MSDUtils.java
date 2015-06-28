@@ -224,6 +224,18 @@ public class MSDUtils {
 		return songs;
 	}
 	
+	static List<Integer> songByPopularityFromSongUsers(Map<Integer, List<Integer>> songUsers) {
+		List<Integer> songs = new ArrayList<>( songUsers.keySet() );
+		Collections.sort(songs, new Comparator<Integer>() {
+			@Override
+			public int compare(Integer arg0, Integer arg1) {
+				return songUsers.get(arg0).size() - songUsers.get(arg1).size();
+			}
+		});
+		
+		return songs;
+	}
+	
 
 	public static void exportToCSV(File in, File out, final Map<String, Integer> userIndices, final Map<String, Integer> songIndices) throws IOException {
 		Set<OpenOption> options = new HashSet<OpenOption>();
