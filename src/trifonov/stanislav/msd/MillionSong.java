@@ -20,9 +20,13 @@ import java.util.Set;
 import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.eval.RecommenderBuilder;
 import org.apache.mahout.cf.taste.impl.eval.AbstractDifferenceRecommenderEvaluator;
+import org.apache.mahout.cf.taste.impl.eval.AverageAbsoluteDifferenceRecommenderEvaluator;
 import org.apache.mahout.cf.taste.impl.model.file.FileDataModel;
+import org.apache.mahout.cf.taste.impl.recommender.CachingRecommender;
 import org.apache.mahout.cf.taste.impl.recommender.GenericBooleanPrefItemBasedRecommender;
+import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
 import org.apache.mahout.cf.taste.impl.recommender.ItemAverageRecommender;
+import org.apache.mahout.cf.taste.impl.recommender.RandomRecommender;
 import org.apache.mahout.cf.taste.impl.recommender.svd.SVDPlusPlusFactorizer;
 import org.apache.mahout.cf.taste.impl.recommender.svd.SVDRecommender;
 import org.apache.mahout.cf.taste.impl.similarity.LogLikelihoodSimilarity;
@@ -60,9 +64,8 @@ public class MillionSong {
 		MillionSong ms = new MillionSong();
 		ms.prepareData();
 		ms.train();
-//		ms.recommendAndExport();
-		
 		ms.testRecommenders();
+//		ms.recommendAndExport();
 		
 		System.out.println("done");
 	}
@@ -76,14 +79,14 @@ public class MillionSong {
 	private final File _evaluationCSVFile = new File(DIRNAME_DATA, FILENAME_VISIBLE_HISTORY_CSV);
 	private final File _recommendationsOutputFile = new File(DIRNAME_DATA, FILENAME_RECOMMENDATIONS_OUTPUT);
 	private final File _evaluationTestHidden = new File(DIRNAME_EVAL_DATA, FILENAME_EVAL_TEST_HIDDEN);
-	private final File _evaluationTestVisbile = new File(DIRNAME_EVAL_DATA, FILENAME_EVAL_TEST_VISIBLE);
+	private final File _evaluationTestVisible = new File(DIRNAME_EVAL_DATA, FILENAME_EVAL_TEST_VISIBLE);
 	private final File _evaluationValidationHidden = new File(DIRNAME_EVAL_DATA, FILENAME_EVAL_VALIDATION_HIDDEN);
 	private final File _evaluationValidationVisible = new File(DIRNAME_EVAL_DATA, FILENAME_EVAL_VALIDATION_VISIBLE);
 	
 	private Map<String, Integer> _songIndices;
-	private Map<String, Integer> _evaluationUserIndices;
+	private Map<String, Integer> _userIndices;
 	private List<Integer> _popularSongs;
-	private Map<Integer, List<Integer>> _userSongs;
+	private Map<Integer, List<Integer>> _userSongsEvaluation;
 	private Map<Integer, List<Integer>> _songUsersTraining;
 	
 	
@@ -95,12 +98,12 @@ public class MillionSong {
 		System.out.println("processing data...");
 
 		_songIndices = MSDUtils.songIndices(_songsFile);
-		_evaluationUserIndices = MSDUtils.uniqueUsers(_usersFile);
+		_userIndices = MSDUtils.uniqueUsers(_usersFile);
 		
 		if( !_trainingCSVFile.exists() )
 			MSDUtils.exportToCSV( _trainingFile, _trainingCSVFile, MSDUtils.uniqueUsers(_trainingFile), _songIndices );
 		if( !_evaluationCSVFile.exists() )
-			MSDUtils.exportToCSV( _evaluationFile, _evaluationCSVFile, _evaluationUserIndices, _songIndices );
+			MSDUtils.exportToCSV( _evaluationFile, _evaluationCSVFile, _userIndices, _songIndices );
 
 		System.out.println("data is ready");
 	}
@@ -112,7 +115,7 @@ public class MillionSong {
 //		_popularSongs = MSDUtils.songByPopularityFromCSV(_trainingCSVFile);
 		_songUsersTraining = MSDUtils.songUsersFromCSV(_trainingCSVFile);
 		_popularSongs = MSDUtils.songByPopularityFromSongUsers(_songUsersTraining);
-		_userSongs = MSDUtils.userSongs( _evaluationValidationVisible, _evaluationUserIndices, _songIndices);
+		_userSongsEvaluation = MSDUtils.userSongs( _evaluationTestVisible, _userIndices, _songIndices);
 		long end = System.currentTimeMillis();
 		System.out.println("Training took " + (end-start) + "ms.");
 	}
@@ -126,7 +129,23 @@ public class MillionSong {
 		recommenderBuilders.put("PopRec", new RecommenderBuilder() {
 			@Override
 			public Recommender buildRecommender(DataModel dataModel) throws TasteException {
-				return new MSDRecommender(dm, _popularSongs);
+				return new MSDPopularRecommender(dm, _popularSongs);
+			}
+		});
+		
+		recommenderBuilders.put("RandRec", new RecommenderBuilder() {
+			@Override
+			public Recommender buildRecommender(DataModel dataModel) throws TasteException {
+				return new MSDRandomRecommender(dm, new ArrayList<Integer>(_songIndices.values()));
+			}
+		});
+		
+		recommenderBuilders.put("CondProbSimilarity", new RecommenderBuilder() {
+			@Override
+			public Recommender buildRecommender(DataModel dataModel) throws TasteException {
+				return new CachingRecommender(
+						new GenericBooleanPrefItemBasedRecommender(
+								dm, new ConditionalProbabilityItemSimilarity(_songUsersTraining)) );
 			}
 		});
 		
@@ -152,10 +171,12 @@ public class MillionSong {
 		});
 		
 		
-		double trainingPercentage = 0.9;
-		double testingPercentage = 0.1;
+		double trainingPercentage = 0.999;
+		double testingPercentage = 0.999;
 		
-		AbstractDifferenceRecommenderEvaluator recEvaluator = new MeanAveragePrecisionEvaluator(_userSongs);
+		AbstractDifferenceRecommenderEvaluator recEvaluator = new MeanAveragePrecisionEvaluator(_userSongsEvaluation);
+		recEvaluator.setMaxPreference(1f);
+		recEvaluator.setMinPreference(0f);
 		
 		/*
 		 * Using AverageAbsoluteDifferenceRecommenderEvaluator:
@@ -180,6 +201,7 @@ public class MillionSong {
 			double time = (end-start) / 1000.0;
 			
 			System.out.println(String.format(logFormat, name, score, time));
+//			System.out.println(name + " recommender scored "+ score +" in "+(end-start)+" ms");
 		}
 	}
 	
@@ -190,9 +212,9 @@ public class MillionSong {
 		long start = System.currentTimeMillis();
 		DataModel dataModel = new FileDataModel(_evaluationCSVFile);
 		ItemSimilarity itemSimilarity = new ConditionalProbabilityItemSimilarity(_songUsersTraining);
-		Recommender cachingRecommender = new MSDRecommender(dataModel, _popularSongs);// CachingRecommender( new GenericItemBasedRecommender(dataModel, itemSimilarity) );
+		Recommender cachingRecommender = new CachingRecommender( new GenericBooleanPrefItemBasedRecommender(dataModel, itemSimilarity) );
 		
-		Collection<Integer> values = _evaluationUserIndices.values();
+		Collection<Integer> values = _userIndices.values();
 		Integer[] users = values.toArray( new Integer[values.size()] );
 		Arrays.sort(users);
 

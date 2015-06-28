@@ -2,7 +2,9 @@ package trifonov.stanislav.msd;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.mahout.cf.taste.common.Refreshable;
 import org.apache.mahout.cf.taste.common.TasteException;
@@ -12,14 +14,19 @@ import org.apache.mahout.cf.taste.model.DataModel;
 import org.apache.mahout.cf.taste.recommender.IDRescorer;
 import org.apache.mahout.cf.taste.recommender.RecommendedItem;
 
-class MSDRecommender extends AbstractRecommender {
+class MSDPopularRecommender extends AbstractRecommender {
 	
 	private final List<Integer> _popularSongs;
+	private final Map<Integer, Integer> _popularSongIndices;
 	
 
-	protected MSDRecommender(DataModel dataModel, List<Integer> popularSongs) {
+	protected MSDPopularRecommender(DataModel dataModel, List<Integer> popularSongs) {
 		super(dataModel);
 		_popularSongs = popularSongs;
+		_popularSongIndices = new HashMap<>(_popularSongs.size());
+		
+		for(int index=0; index < _popularSongs.size(); ++index)
+			_popularSongIndices.put( _popularSongs.get(index), index );
 	}
 	
 	@Override
@@ -35,10 +42,11 @@ class MSDRecommender extends AbstractRecommender {
 
 	@Override
 	public float estimatePreference(long userID, long itemID) throws TasteException {
-		if(_popularSongs.indexOf((int)itemID) < MillionSong.RECOMMENDATIONS_COUNT)
-			return 1f;
+		Integer songIndex = _popularSongIndices.get((int)itemID);
+		if( songIndex == null || songIndex.intValue() >= MillionSong.RECOMMENDATIONS_COUNT)
+			return 0f;
 		
-		return 0f;
+		return 1f;
 	}
 
 	@Override

@@ -25,16 +25,18 @@ public class MeanAveragePrecisionEvaluator extends AbstractDifferenceRecommender
 	@Override
 	protected void processOneEstimate(float estimatedPreference, Preference realPref) {
 
-		Integer user = (int)realPref.getUserID();
-		Integer item = (int)realPref.getItemID();
-		
-		List<Integer> recommendations = _userRecommendations.get(user);
-		if(recommendations == null) {
-			recommendations = new ArrayList<>( MillionSong.RECOMMENDATIONS_COUNT );
-			_userRecommendations.put(user, recommendations);
-		}
-		if(recommendations.size() <= MillionSong.RECOMMENDATIONS_COUNT)
-			recommendations.add(item);
+//		if( (int)estimatedPreference > 0) {
+			Integer user = (int)realPref.getUserID();
+			Integer item = (int)realPref.getItemID();
+			
+			List<Integer> recommendations = _userRecommendations.get(user);
+			if(recommendations == null) {
+				recommendations = new ArrayList<>( MillionSong.RECOMMENDATIONS_COUNT );
+				_userRecommendations.put(user, recommendations);
+			}
+			if(recommendations.size() <= MillionSong.RECOMMENDATIONS_COUNT)
+				recommendations.add(item);
+//		}
 	}
 
 	// Check the winner's document for the complete formula
@@ -66,7 +68,7 @@ public class MeanAveragePrecisionEvaluator extends AbstractDifferenceRecommender
 				}
 			}
 			
-			AP /= Math.min(userSongs.size(), MillionSong.RECOMMENDATIONS_COUNT);//number of relevant songs
+			AP /= (double) (Math.min(userSongs.size(), MillionSong.RECOMMENDATIONS_COUNT));//number of relevant songs
 			mAP += AP;
 		}
 		
